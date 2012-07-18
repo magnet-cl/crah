@@ -2,7 +2,6 @@ package cl.magnet.resty;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.HashMap;
@@ -96,23 +95,37 @@ public class RestClient {
 		return object;
 	}
 
-	private String buildParamsString(HashMap<String, String> params) throws UnsupportedEncodingException {
-		Iterator<Entry<String, String>> it = params.entrySet().iterator();
+	private String buildParamsString(JSONObject params) throws UnsupportedEncodingException {
+
 		String res = "?";
-		while (it.hasNext()) {
-			Entry<String, String> pair = it.next();
-			String add = pair.getKey() + "="
-					+ URLEncoder.encode(pair.getValue(), "UTF-8");
-			if (params.size() > 1) {
-				res += "&" + add;
-			} else {
-				res += add;
+		
+		if(params != null){
+			Iterator<String> it = params.keys();
+			
+
+			while (it.hasNext()) {
+				String key = it.next();
+				try {
+					String value = params.getString(key);
+
+					String add = key + "="
+							+ URLEncoder.encode(value, "UTF-8");
+					if (params.length() > 1) {
+						res += "&" + add;
+					} else {
+						res += add;
+					}
+				} catch (JSONException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}		
 			}
 		}
+
 		return res;
 	}
 
-	private JSONObject buildParamsJSONObject(HashMap<String, String> params) throws UnsupportedEncodingException {
+	/*private JSONObject buildParamsJSONObject(HashMap<String, String> params) throws UnsupportedEncodingException {
 		Iterator<Entry<String, String>> it = params.entrySet().iterator();
 		JSONObject object = new JSONObject();
 
@@ -126,50 +139,18 @@ public class RestClient {
 			}
 		}
 		return object;
-	}
+	}*/
 
 	private void addHeaders(HashMap<String, String> headers, HttpRequestBase request) throws UnsupportedEncodingException {
 
 		Iterator<Entry<String, String>> it = headers.entrySet().iterator();
 		while (it.hasNext()) {
 			Entry<String, String> header = it.next();
-			request.addHeader(header.getKey(), header.getValue());
+			request.setHeader(header.getKey(), header.getValue());
 		}
 	}
 
-	/*private void addPostEntity(HttpPost request, HashMap<String, File> files, HashMap<String, String> params) throws UnsupportedEncodingException {
-
-		MultipartEntity reqEntity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
-
-		if(files != null){
-			Iterator<Entry<String, File>> it = files.entrySet().iterator();
-			while (it.hasNext()) {
-				Entry<String, File> header = it.next();
-				FileBody fileBody = new FileBody(header.getValue());	
-				reqEntity.addPart(header.getKey(), fileBody);
-			}
-		}
-
-		if(params != null){
-			Iterator<Entry<String, String>> it = params.entrySet().iterator();
-			while (it.hasNext()) {
-				Entry<String, String> header = it.next();
-				StringBody stringBody = new StringBody(header.getValue());	
-				reqEntity.addPart(header.getKey(), stringBody);
-			}
-		}
-
-		request.setEntity(reqEntity);
-	}*/
-
-	/*public static final int GET = 0;
-	public static final int POST = 1;
-	public static final int PUT = 2;
-	public static final int PATCH = 3;
-	public static final int DELETE = 4;*/
-	
-	//TODO the default case is not handled
-	private JSONObject executeRequest(int method, String URL, HashMap<String, String> params, HashMap<String, String> headers, HashMap<String, File> files){
+	public JSONObject executeRequest(int method, String URL, JSONObject params, HashMap<String, String> headers, HashMap<String, File> files){
 
 		HttpEntity resultEntity;
 
@@ -179,7 +160,7 @@ public class RestClient {
 
 			switch(method){
 			case RestClient.GET:
-				request = this.getGETResquest(URL, params);
+				request = this.getGETRequest(URL, params);
 				break;
 			case RestClient.POST:
 				request = this.getPOSTRequest(URL, params, files);
@@ -223,7 +204,7 @@ public class RestClient {
 		}
 	}
 
-	private HttpGet getGETResquest(String URL, HashMap<String, String> params){
+	private HttpGet getGETRequest(String URL, JSONObject params){
 
 		try {
 
@@ -238,7 +219,7 @@ public class RestClient {
 		}
 	}
 
-	private void addMultiPartEntityToRequest(HttpRequest request, HashMap<String, String> params, HashMap<String, File> files) throws UnsupportedEncodingException{
+	private void addMultiPartEntityToRequest(HttpRequest request, JSONObject params, HashMap<String, File> files) throws UnsupportedEncodingException{
 
 		HttpPost postRequest = null;
 		HttpPut putRequest = null;
@@ -267,11 +248,18 @@ public class RestClient {
 		}
 
 		if(params != null){
-			Iterator<Entry<String, String>> it = params.entrySet().iterator();
+			Iterator<String> it = params.keys();
 			while (it.hasNext()) {
-				Entry<String, String> header = it.next();
-				StringBody stringBody = new StringBody(header.getValue());	
-				reqEntity.addPart(header.getKey(), stringBody);
+				String key = it.next();
+				String value;
+				try {
+					value = params.getString(key);
+					StringBody stringBody = new StringBody(value);	
+					reqEntity.addPart(key, stringBody);
+				} catch (JSONException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}		
 			}
 		}
 
@@ -286,7 +274,7 @@ public class RestClient {
 		}
 	}
 
-	private void addStringBodyEntityToRequest(HttpRequest request, HashMap<String, String> params) throws UnsupportedEncodingException{
+	private void addStringBodyEntityToRequest(HttpRequest request, JSONObject params) throws UnsupportedEncodingException{
 
 		HttpPost postRequest = null;
 		HttpPut putRequest = null;
@@ -303,43 +291,52 @@ public class RestClient {
 			return;
 		}
 
-		JSONObject holder = this.buildParamsJSONObject(params);
+		//JSONObject holder = this.buildParamsJSONObject(params);
+
+		/*JSONObject holder = new JSONObject();
+		try {
+			holder.put("received", true);
+		} catch (JSONException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}*/
 
 		//passes the results to a string builder/entity
-		StringEntity reqEntity = new StringEntity(holder.toString());
+		StringEntity reqEntity = new StringEntity(params.toString());
+		//reqEntity.setContentType("application/json");
 
 		//sets the post request as the resulting string
 		if(request.getClass().toString().equals(HttpPost.class.toString())){
 			postRequest.setEntity(reqEntity);
 		}else if(request.getClass().toString().equals(HttpPut.class.toString())){
 			putRequest.setEntity(reqEntity);
-		}else if(request.getClass().toString().equals(HttpPut.class.toString())){
+		}else if(request.getClass().toString().equals(HttpPatch.class.toString())){
 			patchRequest.setEntity(reqEntity);
 		}else{
 			Log.d(TAG, "Could not add String entity to the request, it was neither POST nor PATCH nor PUT.");
 		}
 	}
 
-	private HttpPost getPOSTRequest(String URL, HashMap<String, String> params, HashMap<String, File> files){
+	private HttpPost getPOSTRequest(String URL, JSONObject params, HashMap<String, File> files){
 
 		try {
 			HttpPost request = new HttpPost(URL);
 
-			if(files.size() != 0){
-				this.addMultiPartEntityToRequest(request, params, files);
-			}else{
+			//if(files.size() != 0){
+			this.addMultiPartEntityToRequest(request, params, files);
+			/*}else{
 				this.addStringBodyEntityToRequest(request, params);
-			}
+			}*/
 
 			return request;
 		} catch (UnsupportedEncodingException e) {
 
-			Log.e(TAG, "Could not build GET request.");
+			Log.e(TAG, "Could not build POST request.");
 			return null;
 		}
 	}
 
-	private HttpPut getPUTRequest(String URL, HashMap<String, String> params, HashMap<String, File> files){
+	private HttpPut getPUTRequest(String URL, JSONObject params, HashMap<String, File> files){
 
 		try {
 			HttpPut request = new HttpPut(URL);
@@ -358,7 +355,7 @@ public class RestClient {
 		}
 	}
 
-	private HttpPatch getPATCHRequest(String URL, HashMap<String, String> params, HashMap<String, File> files){
+	private HttpPatch getPATCHRequest(String URL, JSONObject params, HashMap<String, File> files){
 
 		try {
 			HttpPatch request = new HttpPatch(URL);
@@ -384,47 +381,77 @@ public class RestClient {
 		return request;
 	}
 
-	/*public HttpEntity executeRequest(int method, String URL, HashMap<String, String> params, HashMap<String, String> headers, HashMap<String, File> files) {
+	/*public JSONObject login3S(String username, String token)
+	{
+		Log.d(TAG, "Called service for logging in user " + username);
+		HttpPost httppost = new HttpPost("http://50.116.13.213//api/resources/user/signin/");
 
-		HttpRequestBase request;
-		HttpContext localContext = new BasicHttpContext();
+		MultipartEntity multipartEntity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);  
+		try {
+			multipartEntity.addPart("username", new StringBody(username));
 
-		try{
-			// add params and create request
-			if(method == RestClient.GET){
-				request = new HttpGet(URL + buildParamsString(params));
-			}
-			else if (method == RestClient.POST){
+			multipartEntity.addPart("token", new StringBody(token));
+			httppost.setEntity(multipartEntity);
 
-				request = new HttpPost(URL);
-				this.addPostEntity((HttpPost)request,files, params);
-			}
-			else{
-				return null;
-			}
+			HttpResponse response = mHttpClient.execute(httppost);
 
-			// add headers
-			this.addHeaders(headers, request);
+			HttpEntity entity = response.getEntity();
 
-			// exec request
-			HttpResponse resp;
+			JSONObject responseObject = this.parseEntity(entity);
+			Log.d(TAG, responseObject.toString());
 
-			resp = mHttpClient.execute(request, localContext);
+			Log.d(TAG, "Service finished");
 
-			HttpEntity entity = resp.getEntity();
-			return entity;
+			return responseObject;
 
-		} catch (IllegalStateException e) {
-
-			Log.e(TAG, e.getMessage());
+		} catch (UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 			return null;
 		} catch (ClientProtocolException e) {
-			Log.e(TAG, e.getMessage());
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 			return null;
 		} catch (IOException e) {
-			Log.e(TAG, e.getMessage());
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 			return null;
 		}
+
+	}
+
+
+	public JSONObject messageIsSeen3S(long serverId){
+
+		Log.d(TAG, "Sending message is seen to the server.");
+		try {
+
+			HttpPatch httpPatch = new HttpPatch("http://50.116.13.213//api/resources/received_image/" + serverId + "/?format=json");
+
+			JSONObject holder = new JSONObject();
+			holder.put("received", true);
+
+			//passes the results to a string builder/entity
+			StringEntity se = new StringEntity(holder.toString());
+
+			//sets the post request as the resulting string
+			httpPatch.setEntity(se);
+			//sets a request header so the page receving the request will know what to do with it
+			httpPatch.setHeader("Accept", "application/json");
+			httpPatch.setHeader("Content-type", "application/json");
+
+			HttpResponse response = mHttpClient.execute(httpPatch);
+
+			//JSONObject responseObject = this.parseEntity(response.getEntity());
+
+			//Log.d(TAG, responseObject.toString());		
+			Log.d(TAG, "Service finished");
+
+			return null;
+		} catch (Exception e) {
+			Log.e(TAG, e.getLocalizedMessage(), e);
+		}
+		return null;
 	}*/
 
 	/*private HttpClient getNewSSLClient() {
