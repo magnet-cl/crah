@@ -11,7 +11,8 @@ import java.util.Map.Entry;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
+import org.apache.http.HttpStatus;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -78,7 +79,7 @@ public class RestClient {
 		if (entity != null) {
 			response = EntityUtils.toString(entity);;
 
-			Log.d(TAG, response);
+			//Log.d(TAG, response);
 
 			try {
 				object = (JSONObject) new JSONTokener(response).nextValue();
@@ -90,7 +91,7 @@ public class RestClient {
 				e.printStackTrace();
 				return null;
 			}
-			Log.i(TAG, "response: " + response);
+			//Log.i(TAG, "response: " + response);
 		}
 		return object;
 	}
@@ -100,11 +101,11 @@ public class RestClient {
 		String res = "?";
 		
 		if(params != null){
-			Iterator<String> it = params.keys();
+			Iterator<?> it = params.keys();
 			
 
 			while (it.hasNext()) {
-				String key = it.next();
+				String key = (String) it.next();
 				try {
 					String value = params.getString(key);
 
@@ -150,7 +151,7 @@ public class RestClient {
 		}
 	}
 
-	public JSONObject executeRequest(int method, String URL, JSONObject params, HashMap<String, String> headers, HashMap<String, File> files){
+	public JSONResponse executeRequest(int method, String URL, JSONObject params, HashMap<String, String> headers, HashMap<String, File> files){
 
 		HttpEntity resultEntity;
 
@@ -187,10 +188,16 @@ public class RestClient {
 
 			resp = mHttpClient.execute(request, localContext);
 
+			int statusCode = resp.getStatusLine().getStatusCode();
+			
+			Log.d(TAG, "The response status code is " + statusCode);
+			
 			resultEntity = resp.getEntity();
+			
+			JSONObject responseObject = this.parseEntity(resultEntity);
 
 			if(resultEntity != null){
-				return this.parseEntity(resultEntity);
+				return new JSONResponse(statusCode, responseObject);
 			}else{
 				return null;
 			}
@@ -201,119 +208,6 @@ public class RestClient {
 
 			Log.e(TAG, e.getMessage());
 			return null;
-		}
-	}
-
-	private HttpGet getGETRequest(String URL, JSONObject params){
-
-		try {
-
-			// parameters are url encoded in the URL
-			HttpGet request = new HttpGet(URL + buildParamsString(params));
-
-			return request;
-		} catch (UnsupportedEncodingException e) {
-
-			Log.e(TAG, "Could not build GET request.");
-			return null;
-		}
-	}
-
-	private void addMultiPartEntityToRequest(HttpRequest request, JSONObject params, HashMap<String, File> files) throws UnsupportedEncodingException{
-
-		HttpPost postRequest = null;
-		HttpPut putRequest = null;
-		HttpPatch patchRequest = null;
-
-		if(request.getClass().toString().equals(HttpPost.class.toString())){
-			postRequest = (HttpPost) request;
-		}else if(request.getClass().toString().equals(HttpPut.class.toString())){
-			putRequest = (HttpPut) request;
-		}else if(request.getClass().toString().equals(HttpPatch.class.toString())){
-			patchRequest = (HttpPatch) request;
-		}else{
-			Log.d(TAG, "Could not add Multipart entity to the request, it was neither POST nor PATCH nor PUT.");
-			return;
-		}
-
-		MultipartEntity reqEntity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
-
-		if(files != null){
-			Iterator<Entry<String, File>> it = files.entrySet().iterator();
-			while (it.hasNext()) {
-				Entry<String, File> header = it.next();
-				FileBody fileBody = new FileBody(header.getValue());	
-				reqEntity.addPart(header.getKey(), fileBody);
-			}
-		}
-
-		if(params != null){
-			Iterator<String> it = params.keys();
-			while (it.hasNext()) {
-				String key = it.next();
-				String value;
-				try {
-					value = params.getString(key);
-					StringBody stringBody = new StringBody(value);	
-					reqEntity.addPart(key, stringBody);
-				} catch (JSONException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}		
-			}
-		}
-
-		if(request.getClass().toString().equals(HttpPost.class.toString())){
-			postRequest.setEntity(reqEntity);
-		}else if(request.getClass().toString().equals(HttpPut.class.toString())){
-			putRequest.setEntity(reqEntity);
-		}else if(request.getClass().toString().equals(HttpPut.class.toString())){
-			patchRequest.setEntity(reqEntity);
-		}else{
-			Log.d(TAG, "Could not add Multipart entity to the request, it was neither POST nor PATCH nor PUT.");
-		}
-	}
-
-	private void addStringBodyEntityToRequest(HttpRequest request, JSONObject params) throws UnsupportedEncodingException{
-
-		HttpPost postRequest = null;
-		HttpPut putRequest = null;
-		HttpPatch patchRequest = null;
-
-		if(request.getClass().toString().equals(HttpPost.class.toString())){
-			postRequest = (HttpPost) request;
-		}else if(request.getClass().toString().equals(HttpPut.class.toString())){
-			putRequest = (HttpPut) request;
-		}else if(request.getClass().toString().equals(HttpPatch.class.toString())){
-			patchRequest = (HttpPatch) request;
-		}else{
-			Log.d(TAG, "Could not add String entity to the request, it was neither POST nor PATCH nor PUT.");
-			return;
-		}
-
-		//JSONObject holder = this.buildParamsJSONObject(params);
-
-		/*JSONObject holder = new JSONObject();
-		try {
-			holder.put("received", true);
-		} catch (JSONException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}*/
-
-		//passes the results to a string builder/entity
-		StringEntity reqEntity = new StringEntity(params.toString());
-		//reqEntity.setContentType("application/json");
-
-		//sets the post request as the resulting string
-		if(request.getClass().toString().equals(HttpPost.class.toString())){
-			postRequest.setEntity(reqEntity);
-		}else if(request.getClass().toString().equals(HttpPut.class.toString())){
-			putRequest.setEntity(reqEntity);
-		}else if(request.getClass().toString().equals(HttpPatch.class.toString())){
-			patchRequest.setEntity(reqEntity);
-		}else{
-			Log.d(TAG, "Could not add String entity to the request, it was neither POST nor PATCH nor PUT.");
 		}
 	}
 
@@ -380,79 +274,121 @@ public class RestClient {
 
 		return request;
 	}
+	
+	private HttpGet getGETRequest(String URL, JSONObject params){
 
-	/*public JSONObject login3S(String username, String token)
-	{
-		Log.d(TAG, "Called service for logging in user " + username);
-		HttpPost httppost = new HttpPost("http://50.116.13.213//api/resources/user/signin/");
-
-		MultipartEntity multipartEntity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);  
 		try {
-			multipartEntity.addPart("username", new StringBody(username));
 
-			multipartEntity.addPart("token", new StringBody(token));
-			httppost.setEntity(multipartEntity);
+			// parameters are url encoded in the URL
+			HttpGet request = new HttpGet(URL + buildParamsString(params));
 
-			HttpResponse response = mHttpClient.execute(httppost);
-
-			HttpEntity entity = response.getEntity();
-
-			JSONObject responseObject = this.parseEntity(entity);
-			Log.d(TAG, responseObject.toString());
-
-			Log.d(TAG, "Service finished");
-
-			return responseObject;
-
+			return request;
 		} catch (UnsupportedEncodingException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return null;
-		} catch (ClientProtocolException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return null;
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+
+			Log.e(TAG, "Could not build GET request.");
 			return null;
 		}
-
 	}
 
+	private void addMultiPartEntityToRequest(HttpRequest request, JSONObject params, HashMap<String, File> files) throws UnsupportedEncodingException{
 
-	public JSONObject messageIsSeen3S(long serverId){
+		HttpPost postRequest = null;
+		HttpPut putRequest = null;
+		HttpPatch patchRequest = null;
 
-		Log.d(TAG, "Sending message is seen to the server.");
-		try {
-
-			HttpPatch httpPatch = new HttpPatch("http://50.116.13.213//api/resources/received_image/" + serverId + "/?format=json");
-
-			JSONObject holder = new JSONObject();
-			holder.put("received", true);
-
-			//passes the results to a string builder/entity
-			StringEntity se = new StringEntity(holder.toString());
-
-			//sets the post request as the resulting string
-			httpPatch.setEntity(se);
-			//sets a request header so the page receving the request will know what to do with it
-			httpPatch.setHeader("Accept", "application/json");
-			httpPatch.setHeader("Content-type", "application/json");
-
-			HttpResponse response = mHttpClient.execute(httpPatch);
-
-			//JSONObject responseObject = this.parseEntity(response.getEntity());
-
-			//Log.d(TAG, responseObject.toString());		
-			Log.d(TAG, "Service finished");
-
-			return null;
-		} catch (Exception e) {
-			Log.e(TAG, e.getLocalizedMessage(), e);
+		if(request.getClass().toString().equals(HttpPost.class.toString())){
+			postRequest = (HttpPost) request;
+		}else if(request.getClass().toString().equals(HttpPut.class.toString())){
+			putRequest = (HttpPut) request;
+		}else if(request.getClass().toString().equals(HttpPatch.class.toString())){
+			patchRequest = (HttpPatch) request;
+		}else{
+			Log.d(TAG, "Could not add Multipart entity to the request, it was neither POST nor PATCH nor PUT.");
+			return;
 		}
-		return null;
-	}*/
+
+		MultipartEntity reqEntity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
+
+		if(files != null){
+			Iterator<Entry<String, File>> it = files.entrySet().iterator();
+			while (it.hasNext()) {
+				Entry<String, File> header = it.next();
+				FileBody fileBody = new FileBody(header.getValue());	
+				reqEntity.addPart(header.getKey(), fileBody);
+			}
+		}
+
+		if(params != null){
+			Iterator<?> it = params.keys();
+			while (it.hasNext()) {
+				String key = (String) it.next();
+				String value;
+				try {
+					value = params.getString(key);
+					StringBody stringBody = new StringBody(value);	
+					reqEntity.addPart(key, stringBody);
+				} catch (JSONException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}		
+			}
+		}
+
+		if(request.getClass().toString().equals(HttpPost.class.toString())){
+			postRequest.setEntity(reqEntity);
+		}else if(request.getClass().toString().equals(HttpPut.class.toString())){
+			putRequest.setEntity(reqEntity);
+		}else if(request.getClass().toString().equals(HttpPut.class.toString())){
+			patchRequest.setEntity(reqEntity);
+		}else{
+			Log.d(TAG, "Could not add Multipart entity to the request, it was neither POST nor PATCH nor PUT.");
+		}
+	}
+
+	private void addStringBodyEntityToRequest(HttpRequest request, JSONObject params) throws UnsupportedEncodingException{
+
+		HttpPost postRequest = null;
+		HttpPut putRequest = null;
+		HttpPatch patchRequest = null;
+
+		if(request.getClass().toString().equals(HttpPost.class.toString())){
+			postRequest = (HttpPost) request;
+		}else if(request.getClass().toString().equals(HttpPut.class.toString())){
+			putRequest = (HttpPut) request;
+		}else if(request.getClass().toString().equals(HttpPatch.class.toString())){
+			patchRequest = (HttpPatch) request;
+		}else{
+			Log.d(TAG, "Could not add String entity to the request, it was neither POST nor PATCH nor PUT.");
+			return;
+		}
+
+		//JSONObject holder = this.buildParamsJSONObject(params);
+
+		/*JSONObject holder = new JSONObject();
+		try {
+			holder.put("received", true);
+		} catch (JSONException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}*/
+
+		//passes the results to a string builder/entity
+		StringEntity reqEntity = new StringEntity(params.toString());
+		//reqEntity.setContentType("application/json");
+
+		//sets the post request as the resulting string
+		if(request.getClass().toString().equals(HttpPost.class.toString())){
+			postRequest.setEntity(reqEntity);
+		}else if(request.getClass().toString().equals(HttpPut.class.toString())){
+			putRequest.setEntity(reqEntity);
+		}else if(request.getClass().toString().equals(HttpPatch.class.toString())){
+			patchRequest.setEntity(reqEntity);
+		}else{
+			Log.d(TAG, "Could not add String entity to the request, it was neither POST nor PATCH nor PUT.");
+		}
+	}
+
+	
 
 	/*private HttpClient getNewSSLClient() {
 
