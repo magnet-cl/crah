@@ -20,7 +20,4 @@ public class JSONResponse {
 		this.statusCode = statusCode;
 		this.responseObject = responseObject;
 	}
-	
-	
-
 }
