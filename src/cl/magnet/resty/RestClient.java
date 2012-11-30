@@ -6,13 +6,12 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map.Entry;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -21,6 +20,7 @@ import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.conn.scheme.SchemeRegistry;
+import org.apache.http.cookie.Cookie;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.mime.HttpMultipartMode;
 import org.apache.http.entity.mime.MultipartEntity;
@@ -64,6 +64,10 @@ public class RestClient {
 		ClientConnectionManager manager = new ThreadSafeClientConnManager(params, registry);
 		mHttpClient = new DefaultHttpClient(manager, params);
 	}
+	
+	public List<Cookie> getCookies(){
+		return mHttpClient.getCookieStore().getCookies();
+	}
 
 	/**
 	 * Transforms the entity contents into a JSONObject if possible, returns null otherwise
@@ -72,17 +76,17 @@ public class RestClient {
 	 * @throws IllegalStateException
 	 * @throws IOException
 	 */
-	private JSONObject parseEntity(HttpEntity entity) throws IllegalStateException, IOException{
+	private Object parseEntity(HttpEntity entity) throws IllegalStateException, IOException{
 		String response = null;
-		JSONObject object = null;
+		Object object = null;
 
 		if (entity != null) {
-			response = EntityUtils.toString(entity);;
+			response = EntityUtils.toString(entity);
 
 			//Log.d(TAG, response);
 
 			try {
-				object = (JSONObject) new JSONTokener(response).nextValue();
+				object =  new JSONTokener(response).nextValue();
 
 			} catch (JSONException e) {
 				e.printStackTrace();
@@ -99,10 +103,10 @@ public class RestClient {
 	private String buildParamsString(JSONObject params) throws UnsupportedEncodingException {
 
 		String res = "?";
-		
+
 		if(params != null){
 			Iterator<?> it = params.keys();
-			
+
 
 			while (it.hasNext()) {
 				String key = (String) it.next();
@@ -189,12 +193,12 @@ public class RestClient {
 			resp = mHttpClient.execute(request, localContext);
 
 			int statusCode = resp.getStatusLine().getStatusCode();
-			
+
 			Log.d(TAG, "The response status code is " + statusCode);
-			
+
 			resultEntity = resp.getEntity();
-			
-			JSONObject responseObject = this.parseEntity(resultEntity);
+
+			Object responseObject = this.parseEntity(resultEntity);
 
 			if(resultEntity != null){
 				return new JSONResponse(statusCode, responseObject);
@@ -216,11 +220,11 @@ public class RestClient {
 		try {
 			HttpPost request = new HttpPost(URL);
 
-			//if(files.size() != 0){
-			this.addMultiPartEntityToRequest(request, params, files);
-			/*}else{
+			if(files.size() != 0){
+				this.addMultiPartEntityToRequest(request, params, files);
+			}else{
 				this.addStringBodyEntityToRequest(request, params);
-			}*/
+			}
 
 			return request;
 		} catch (UnsupportedEncodingException e) {
@@ -274,7 +278,7 @@ public class RestClient {
 
 		return request;
 	}
-	
+
 	private HttpGet getGETRequest(String URL, JSONObject params){
 
 		try {
@@ -388,7 +392,7 @@ public class RestClient {
 		}
 	}
 
-	
+
 
 	/*private HttpClient getNewSSLClient() {
 

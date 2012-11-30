@@ -1,21 +1,19 @@
 package cl.magnet.resty;
 
-import org.json.JSONObject;
-
 public class JSONResponse {
 	
 	int statusCode;
-	JSONObject responseObject;
+	Object responseObject;
 	
 	public int getStatusCode() {
 		return statusCode;
 	}
 
-	public JSONObject getResponseObject() {
+	public Object getResponseObject() {
 		return responseObject;
 	}
 
-	public JSONResponse(int statusCode, JSONObject responseObject) {
+	public JSONResponse(int statusCode, Object responseObject) {
 		super();
 		this.statusCode = statusCode;
 		this.responseObject = responseObject;
